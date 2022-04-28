@@ -30,13 +30,13 @@ sub processFile{
         } elsif ($linenumber == 3){
             if ($_ ne "")
             {
-                $final = "${final}$_\n";
+                $final = "${final}$_\n\n";
             }
         } else {
-            $final = "${final}$_\n";
+            $final = "${final}$_\n\n";
         }
     }
-    $final = "${final}\\endsong\n";
+    $final = "${final}\\endsong\n\n";
 }
 
 
