@@ -1,3 +1,26 @@
-\documentclass{article}
-\title{My Title}
+\documentclass[twocolumn,10pt]{article}
+\usepackage{emptypage}
+\usepackage[OT2,T1]{fontenc} 
+%\usepackage{savetrees}      % Enable to save paper!
+
+%% Songbook packages
+\usepackage[lyric]{songs}
+\usepackage{musixtex}
+
+%% Song aesthetics
+\noversenumbers
+\setlength\baselineadj{0.3em}
+\renewcommand{\colbotglue}    % Compact verses
+             {0pt plus .5\textheight minus 0pt}
+
+
+%% Song index settings
+\newindex{titleidx}{titleidx} % Index name
+\indexsongsas{titleidx}{\thepage}
+\sepindexesfalse
+
+%% Author, songbook title, year, etc.
+\title{\textbf{\Huge The Thousand Good Songs}}
+\date{\the\year}
+
 \begin{document}
