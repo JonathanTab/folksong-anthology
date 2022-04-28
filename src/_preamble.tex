@@ -4,6 +4,7 @@
 %\usepackage{savetrees}      % Enable to save paper!
 
 %% Songbook packages
+\usepackage{ifpdf} % Required to avoid error
 \usepackage[lyric]{songs}
 \usepackage{musixtex}
 
@@ -11,7 +12,7 @@
 \noversenumbers
 \setlength\baselineadj{0.3em}
 \renewcommand{\colbotglue}    % Compact verses
-             {0pt plus .5\textheight minus 0pt}
+    {0pt plus .5\textheight minus 0pt}
 
 
 %% Song index settings
