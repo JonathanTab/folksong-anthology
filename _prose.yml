@@ -1,0 +1,4 @@
+prose:
+  rooturl: 'songs'
+  ignore:
+    - gen.tex
