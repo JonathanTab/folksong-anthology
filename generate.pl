@@ -19,22 +19,21 @@ sub processFile{
 
     while(<FH>){
         $linenumber++;
+        $_ =~ s/[\n\r]//g;
         if ($linenumber == 1){
-            $_ =~ s/[\n\r]//g;
             $final = "${final}\\beginsong{$_}\n";
         } elsif ($linenumber == 2){
             if ($_ ne "")
             {
-                print 'test';
             }
 
         } elsif ($linenumber == 3){
             if ($_ ne "")
             {
-                $final = "${final}$_";
+                $final = "${final}$_\n";
             }
         } else {
-            $final = "${final}$_";
+            $final = "${final}$_\n";
         }
     }
     $final = "${final}\\endsong\n";
