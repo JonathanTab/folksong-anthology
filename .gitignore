@@ -1,3 +1,6 @@
+## Dont commit local build files
+build/
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof

@@ -1,6 +1,8 @@
 name: 'Build LaTex Document'
 on: 
   push:
+    paths-ignore:
+      - 'songbook.pdf'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,8 +24,9 @@ jobs:
         run: perl generate.pl
       - name: Run Tectonic
         run: tectonic -X build
-      - name: Upload pdf
-        uses: actions/upload-artifact@v2
+      - name: Move pdf
+        run: mv /home/runner/work/folksong-anthology/folksong-anthology/build/main/main.pdf /home/runner/work/folksong-anthology/folksong-anthology/songbook.pdf
+      - uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          name: main
-          path: /home/runner/work/folksong-anthology/folksong-anthology/build/main/main.pdf
+          commit_message: Built updated PDF
+          file_pattern: songbook.pdf
