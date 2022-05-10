@@ -21,7 +21,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run preprocessor
-        run: perl generate.pl
+        run: perl ./src/generate.pl
       - name: Run Tectonic
         run: tectonic -X build
       - name: Move pdf

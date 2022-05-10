@@ -1,4 +1,9 @@
 prose:
-  rooturl: 'songs'
   ignore:
-    - gen.tex
+    - .gitignore
+    - README.md
+    - Tectonic.toml
+    - _prose.yml
+    - /src
+    - /build
+    - /.github
