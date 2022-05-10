@@ -26,8 +26,10 @@ jobs:
         run: tectonic -X build
       - name: Move pdf
         run: mv /home/runner/work/folksong-anthology/folksong-anthology/build/main/main.pdf /home/runner/work/folksong-anthology/folksong-anthology/songbook.pdf
-      - uses: EndBug/add-and-commit@v9
+      - uses: GuillaumeFalourd/git-commit-push@v1.3
         with:
-          committer_name: GitHub Actions
-          committer_email: 41898282+github-actions[bot]@users.noreply.github.com
-          add: 'songbook.pdf'
+          target_branch: main
+          files: songbook.pdf
+          remote_repository: https://github.com/JonathanTab/pages
+          access_token: ${{secrets.ACCESS_TOKEN}}
+          force: true
