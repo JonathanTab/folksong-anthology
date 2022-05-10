@@ -31,5 +31,5 @@ jobs:
           target_branch: main
           files: songbook.pdf
           remote_repository: https://github.com/JonathanTab/pages
-          access_token: ${{secrets.ACCESS_TOKEN}}
+          access_token: ${{ secrets.PAT }}
           force: true

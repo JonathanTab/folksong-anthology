@@ -2,13 +2,16 @@
 use warnings;
 use strict;
 
-my $dirname = "./songs";
+my $v = qx(python -V);
+print $v;
+
+my $dirname = "../";
 my $final = '';
 
 opendir( my $data_dh, $dirname ) or die "Cannot open $dirname\n";
 while ( my $name = readdir($data_dh) ) {
-    next if ( $name eq '.' or $name eq '..' );
-    my $full_path = "${dirname}/${name}";
+    next if ( $name eq '.' or $name eq '..' or $name !~ /\.txt$/i);
+    my $full_path = "${dirname}${name}";
     processFile($full_path);
 }
 closedir($data_dh);
