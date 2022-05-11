@@ -13,7 +13,7 @@ for file in glob.glob("*.txt"):
             if(lineNumber== 1):
                 final+="\\beginsong{"+line.rstrip('\n')+"}\n"
             else:
-                final+=line
+                final+=line+"\n"
         final+="\\endsong\n\n"
 
 os.chdir(os.path.dirname(__file__))
