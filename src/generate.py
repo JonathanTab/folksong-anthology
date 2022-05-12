@@ -22,8 +22,8 @@ for file in glob.glob("*"):
             final += "\n"
 
             # Now the verses and then change them to chords
-            working = re.sub(r"\s*(.+?\n)\s*?(?:\n+|$)", "\\\\beginverse\\n\\1\\\\endverse\\n", match.group('body'), 0, re.MULTILINE | re.DOTALL)
-            working = re.sub(r"\\beginverse\n(\(Chorus\).*?)\n\\endverse", "\\\\beginchorus\\n\\1\\n\\\\endchorus", working, 0, re.MULTILINE | re.DOTALL)
+            working = re.sub(r"\s*(.+?\n)\s*?(?:\n+|$)", "\\\\beginverse\\n\\1\\\\endverse\\n", match.group('body'), 0, re.MULTILINE | re.DOTALL | re.IGNORECASE))
+            working = re.sub(r"\\beginverse\n([\(\[]Chorus[\)\]].*?)\n\\endverse", "\\\\beginchorus\\n\\1\\n\\\\endchorus", working, 0, re.MULTILINE | re.DOTALL | re.IGNORECASE))
 
             # replace hyphens
             working = re.sub(r"-", '{\\\\textendash}', working, 0, re.MULTILINE)
