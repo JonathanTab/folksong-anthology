@@ -5,7 +5,7 @@ import glob, os, re
 final =""
 
 os.chdir(os.path.dirname(os.path.dirname(__file__)))
-for file in glob.glob("*.txt"):
+for file in glob.glob("([^\.])"):
     lineNumber = 0
     with open(file) as topo_file:
         for line in topo_file:
