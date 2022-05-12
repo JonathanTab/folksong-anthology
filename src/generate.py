@@ -26,8 +26,8 @@ for file in glob.glob("*"):
             working = re.sub(r"\\beginverse\n(\(Chorus\).*?)\n\\endverse", "\\\\beginchorus\\n\\1\\n\\\\endchorus", working, 0, re.MULTILINE | re.DOTALL)
 
             # Replace chord flat symbols, then rewrite them
-            working = re.sub(r"(?<=\([A-G])(bb?)(?=(?:(?:sus|maj|min|m|aug|dim)\d?)?(?:/[A-G](?:##?|bb?)?)?\))", "&", working, 0, re.MULTILINE)
-            final += re.sub(r"\(([A-G](##?|&&?)?((sus|maj|min|m|aug|dim)\d?)?(/[A-G](##?|bb?)?)?)\)\s?", "\\[\\1]", working, 0, re.MULTILINE)
+            working = re.sub(r"(?<=\([A-G])(bb?)(?=(?:(?:sus|maj|min|m|aug|dim)\d?)?(?:\d)?(?:/[A-G](?:##?|bb?)?)?\))", "&", working, 0, re.MULTILINE)
+            final += re.sub(r"\(([A-G](##?|&&?)?((sus|maj|min|m|aug|dim)\d?)?(\d)?(/[A-G](##?|bb?)?)?)\)\s?", "\\[\\1]", working, 0, re.MULTILINE)
 
 
             final+="\\endsong\n\n"
