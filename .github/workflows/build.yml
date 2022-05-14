@@ -33,11 +33,11 @@ jobs:
       - name: Run Tectonic AGAIN
         run: tectonic -X build
       - name: Move pdf
-        run: mv /home/runner/work/folksong-anthology/folksong-anthology/build/main/main.pdf /home/runner/work/folksong-anthology/folksong-anthology/songbook.pdf
+        run: mv /home/runner/work/folksong-anthology/folksong-anthology/build/main/main.pdf /home/runner/work/folksong-anthology/folksong-anthology/songbook-${{ github.ref_name }}.pdf
       - uses: GuillaumeFalourd/git-commit-push@v1.3
         with:
           target_branch: main
-          files: songbook.pdf
+          files: songbook-${{ github.ref_name }}.pdf
           commit_message: ${{ github.event.head_commit.message }}
           remote_repository: https://github.com/JonathanTab/pages
           access_token: ${{ secrets.PAT }}
