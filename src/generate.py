@@ -30,7 +30,7 @@ for file in glob.glob("*"):
 
             # Replace chord flat symbols, then rewrite them
             working = re.sub(r"(?<=\([A-G])(bb?)(?=(?:(?:sus|maj|min|m|aug|dim)\d?)?(?:\d)?(?:/[A-G](?:##?|bb?)?)?\))", "&", working, 0, re.MULTILINE)
-            final += re.sub(r"\(([A-G](##?|&&?)?((sus|maj|min|m|aug|dim)\d?)?(\d)?(/[A-G](##?|bb?)?)?)\)\s?", "\\[\\1]", working, 0, re.MULTILINE)
+            final += re.sub(r"\(([A-G](##?|bb?)?((sus|maj|min|m|aug|dim)\d?)?(\d)?(/[A-G](##?|bb?)?)?)\)[^\S\r\n]?", "\\[\\1]", working, 0, re.MULTILINE)
 
             final+="\\endsong\n\n"
 
