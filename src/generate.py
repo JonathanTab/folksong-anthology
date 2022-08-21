@@ -15,7 +15,8 @@ for file in glob.glob("*"):
         with open(file, 'r', encoding='UTF-8') as curFile:
             contents = curFile.read()
             
-            if len(contents.split('\n')) < 4:
+            if len(contents.split('\n')) < 5:
+                print("skip"
                 break;
 
             match = re.search(r"\s*(?P<name>\S.*?)\n(?P<author>\S?.*?)\n+(?P<body>[\S\s]*)$", contents)
