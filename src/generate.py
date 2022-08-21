@@ -17,7 +17,7 @@ for file in glob.glob("*"):
             
             if len(contents.split('\n')) < 5:
                 print("skip")
-                break;
+                continue;
 
             match = re.search(r"\s*(?P<name>\S.*?)\n(?P<author>\S?.*?)\n+(?P<body>[\S\s]*)$", contents)
             final += "\\beginsong{"+match.group('name').strip().rstrip('\n')+"}"
