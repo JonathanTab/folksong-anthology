@@ -16,7 +16,7 @@ for file in glob.glob("*"):
             contents = curFile.read()
             contents = contents + "\n"
             
-            if len(contents.split('\n')) < 5:
+            if len(contents.split('\n')) < 7:
                 print("skip")
                 continue;
 
