@@ -14,6 +14,7 @@ for file in glob.glob("*"):
 
         with open(file, 'r', encoding='UTF-8') as curFile:
             contents = curFile.read()
+            contents = contents + "\n"
             
             if len(contents.split('\n')) < 5:
                 print("skip")
