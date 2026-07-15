@@ -76,6 +76,15 @@ body {
 .pill-success { color: #fff; background: var(--ok); border-color: var(--ok); }
 .pill-failed { color: #fff; background: var(--danger); border-color: var(--danger); }
 @keyframes pulse { 50% { opacity: .5; } }
+.history-pill {
+  font: inherit; cursor: pointer; background: transparent; border: 0; padding: 2px 4px;
+  color: var(--ink-soft); max-width: 220px; text-align: left;
+  display: flex; flex-direction: column; gap: 1px; border-radius: 6px;
+}
+.history-pill:hover { background: var(--panel-2); color: var(--ink); }
+.history-pill .hp-line { font-size: 10.5px; line-height: 1.35; white-space: normal; overflow-wrap: break-word; }
+.history-pill .hp-who { color: var(--ink-soft); }
+.history-pill .hp-what { color: var(--ink-soft); }
 
 /* Layout */
 .layout { flex: 1 1 auto; display: flex; min-height: 0; }
@@ -109,13 +118,15 @@ body {
 }
 .song-item:hover { background: var(--panel-2); }
 .song-item.is-active { background: var(--panel-2); border-color: var(--accent-soft); }
+.song-item:focus-visible { outline: 2px solid var(--accent-soft); outline-offset: -1px; }
 .song-item .name { font-size: 13.5px; font-weight: 600; }
 .song-item .meta { font-size: 11px; color: var(--ink-soft); display: flex; gap: 8px; flex-wrap: wrap; }
 .dot { font-size: 9px; }
 .dot.ready { color: var(--ok); }
 .dot.no-chords { color: var(--gold); }
-.dot.needs-lyrics, .dot.empty, .dot.stub { color: var(--danger); }
+.dot.needs-lyrics, .dot.empty { color: var(--danger); }
 .dot.notation, .dot.needs-chords { color: var(--gold); }
+.dot.pdf { color: var(--accent-soft); }
 
 /* Editor */
 .editor { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -142,7 +153,64 @@ body {
 }
 .badge.ready { color: var(--ok); border-color: var(--ok); }
 .badge.no-chords, .badge.needs-chords, .badge.notation { color: var(--gold); border-color: var(--gold); }
-.badge.needs-lyrics, .badge.empty, .badge.stub { color: var(--danger); border-color: var(--danger); }
+.badge.needs-lyrics, .badge.empty { color: var(--danger); border-color: var(--danger); }
+.badge.pdf { color: var(--accent); border-color: var(--accent); }
+
+/* PDF page preview + crop mode */
+#pdfCropToggleBtn.is-on { border-style: solid; border-color: var(--accent); color: var(--accent); background: var(--panel-2); }
+.crop-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; background: #333; }
+.crop-toolbar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--panel); border-bottom: 1px solid var(--line); flex: 0 0 auto;
+}
+.crop-page-label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
+.crop-readout {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft);
+  padding: 3px 8px; background: var(--panel-2); border-radius: 6px; border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.crop-toolbar-spacer { flex: 1; }
+.crop-stage {
+  flex: 1; min-height: 0; overflow: auto; display: flex; align-items: center; justify-content: center;
+  padding: 16px; position: relative;
+}
+.crop-stage.crop-stage-error::after {
+  content: "Page preview unavailable — check that Ghostscript (`gs`) is installed on this server.";
+  color: #ccc; font-size: 13px; max-width: 360px; text-align: center;
+}
+/* Shrink-wraps exactly to the rendered <img>'s box, so #cropRect's
+   percentage left/top/width/height (set from JS) line up with the image
+   regardless of its displayed size — .crop-stage itself is larger (it
+   centers the image with padding) and would misalign the overlay. */
+.crop-frame { position: relative; display: inline-block; max-width: 100%; max-height: 100%; }
+.crop-img { display: block; max-width: 100%; max-height: calc(100vh - 220px); user-select: none; }
+
+/* Page-change feedback: rasterizing a page can take a moment, so Prev/Next
+   need to show *something* changed right away rather than waiting for the
+   new image to arrive — dim the (stale) current page and spin a marker. */
+.crop-stage.crop-stage-loading .crop-frame { opacity: .35; transition: opacity .1s; }
+.crop-spinner {
+  display: none; position: absolute; top: 50%; left: 50%; margin: -17px 0 0 -17px;
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.25); border-top-color: var(--accent-soft);
+  animation: crop-spin .7s linear infinite; pointer-events: none;
+}
+.crop-stage.crop-stage-loading .crop-spinner { display: block; }
+@keyframes crop-spin { to { transform: rotate(360deg); } }
+.crop-rect {
+  position: absolute; /* left/top/width/height set inline as % by app.js */
+  border: 2px solid var(--accent-soft); background: rgba(154, 59, 46, 0.12);
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.45);
+  cursor: move; touch-action: none;
+}
+.crop-handle {
+  position: absolute; width: 14px; height: 14px; margin: -7px; border-radius: 50%;
+  background: var(--accent-soft); border: 2px solid #fff; touch-action: none;
+}
+.crop-handle[data-handle="nw"] { top: 0; left: 0; cursor: nwse-resize; }
+.crop-handle[data-handle="ne"] { top: 0; right: 0; margin-right: -7px; cursor: nesw-resize; }
+.crop-handle[data-handle="se"] { bottom: 0; right: 0; margin-right: -7px; margin-bottom: -7px; cursor: nwse-resize; }
+.crop-handle[data-handle="sw"] { bottom: 0; left: 0; margin-bottom: -7px; cursor: nesw-resize; }
 .flag-editor { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .flag-editor-label { font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .6px; }
 .flag-toggle {
@@ -195,6 +263,12 @@ body {
 }
 .drawer-head h3 { margin: 0; font-size: 15px; }
 .drawer-actions { display: flex; gap: 8px; }
+.build-flags {
+  background: var(--panel); padding: 8px 20px; display: flex; align-items: center;
+  gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--line); font-size: 12.5px;
+}
+.build-flags-label { color: var(--ink-soft); }
+.build-flags label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
 .drawer-body { flex: 1; display: flex; background: var(--panel); min-height: 0; }
 .drawer-col { flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--line); }
 .log {
@@ -202,6 +276,17 @@ body {
   font-size: 12px; line-height: 1.5; background: #16130f; color: #d8d2c4; white-space: pre-wrap;
 }
 .drawer-pdf iframe { flex: 1; width: 100%; border: 0; background: #333; }
+
+.history-list { list-style: none; margin: 0; padding: 8px 20px; overflow-y: auto; flex: 1; }
+.history-item {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+  padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px;
+}
+.history-item:last-child { border-bottom: none; }
+.history-item .hi-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.history-item .hi-user { font-weight: 600; }
+.history-item .hi-action { color: var(--ink-soft); }
+.history-item .hi-when { color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
 
 /* Toast */
 .toast {

@@ -14,6 +14,10 @@
 #   BOOK_TITLE  title on the cover   (default "The Folksong Anthology")
 #   SONGS_DIR   directory holding the song files (default <repo>/, passed through
 #               to bin/parse-songs.py — see server.js for the same convention)
+#   FLAG_DIAGRAMS/FLAG_AUTHOR/FLAG_HISTORY/FLAG_NOTE/FLAG_CHORDS/FLAG_PDFS
+#               "on"/"off", forwarded to book.typ as --input diagrams=/
+#               author=/history=/note=/chords=/pdfs= (see server.js's
+#               build-flags persistence, set from the manager UI)
 
 set -uo pipefail
 
@@ -57,6 +61,12 @@ log "typesetting: typst compile src/book.typ"
   --ignore-system-fonts \
   --root "$ROOT" \
   --input "data=$REL_JSON" \
+  --input "diagrams=${FLAG_DIAGRAMS:-off}" \
+  --input "author=${FLAG_AUTHOR:-on}" \
+  --input "history=${FLAG_HISTORY:-on}" \
+  --input "note=${FLAG_NOTE:-on}" \
+  --input "chords=${FLAG_CHORDS:-on}" \
+  --input "pdfs=${FLAG_PDFS:-on}" \
   src/book.typ "$BUILD_DIR/songbook.pdf" 2>&1
 rc=$?
 

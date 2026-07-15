@@ -10,7 +10,7 @@ deliberately forgiving and normalises everything into a clean structure:
     { generated, title, songs: [ Song ] }
 
     Song = {
-      name, title, author, meta{key,capo,tempo,time,tuning,source,note,...},
+      name, title, author, meta{author,history,note,...},
       chords: [str],                 # unique chords used, first-seen order
       blocks: [ Block ]
     }
@@ -24,16 +24,28 @@ Two verse conventions both appear in the corpus and are both handled:
     Battle Hymn), where a bare "(Chorus)" line is a *repeat cue*, not content.
 
 The song *title* is always the file name (cleaned of editorial markers) — song
-files no longer carry a title line.  An optional author line may lead the file,
-followed by a blank line.  Workflow flags (needs-lyrics, needs-chords, notation)
-are inferred from the content or set explicitly via a `{flags: ...}` directive;
-they are never encoded in the file name.
+files no longer carry a title line.  Metadata is a small set of `{...}`
+directives at the top of the file: `{author: ...}`, `{history: ...}` (a short
+prose blurb), `{note: ...}` (free-form), and `{flags: ...}` (workflow tags,
+set explicitly — never inferred from content or the file name).
+Scanned sheet-music PDFs live alongside the text song files in SONGS_DIR (same
+rule, but *with* a `.pdf` extension).  Typst >=0.14 can embed a PDF page
+directly as an image (`image(path, page: n)`), so each PDF song just needs its
+page count (via Ghostscript, since Typst has no "how many pages" query) and a
+path relative to the Typst compile root (`--root .`, see bin/build.sh) that
+`src/book.typ` can hand to `image()`.  PDF songs are merged into the same
+`songs` array as text songs (tagged `kind: "pdf"` vs `kind: "lyric"`) and
+sorted together by title, so the book interleaves them alphabetically like any
+other song.
 """
 
 import glob
 import json
 import os
 import re
+import shutil
+import struct
+import subprocess
 import sys
 import time
 
@@ -64,8 +76,11 @@ CUE_RE = re.compile(r"^\s*[\(\[]\s*(chorus|bridge)([^)\]]*)[\)\]]\s*[.,]?\s*$",
 # An inline section marker that *begins* a block: "[Chorus] first line..."
 MARK_RE = re.compile(r"^\s*[\(\[]\s*(chorus|bridge)\s*[\)\]]\s*[:-]?\s*",
                      re.IGNORECASE)
-# A metadata directive line: "{key: G}", "{capo: 2}", "{tempo: 120}"...
-DIRECTIVE_RE = re.compile(r"^\s*\{\s*([a-zA-Z][\w-]*)\s*:\s*(.+?)\s*\}\s*$")
+# A metadata directive line: "{author: Trad.}", "{history: ...}", "{note:
+# ...}"... The value may be empty ("{note: }") — new songs are stubbed out
+# with every known metadata directive present but blank (see server.js's
+# defaultNewSongContent).
+DIRECTIVE_RE = re.compile(r"^\s*\{\s*([a-zA-Z][\w-]*)\s*:\s*(.*?)\s*\}\s*$")
 
 # Parenthetical editorial markers to strip from a file name to get the title.
 EDITORIAL = re.compile(
@@ -76,10 +91,10 @@ EDITORIAL = re.compile(
 # ProseMirror "new post" boilerplate that some empty stubs contain.
 BOILERPLATE = "Enter text in [Markdown]"
 
-# The workflow flags a song may carry.  All are either inferred from the file's
-# content or set explicitly with a `{flags: ...}` directive — never from the
-# file name.
-KNOWN_FLAGS = ("needs-lyrics", "needs-chords", "notation", "stub", "ready")
+# The workflow flags a song may carry, set explicitly with a `{flags: ...}`
+# directive — never inferred from content or the file name. "stub" was folded
+# into "needs-lyrics": a short/empty song just needs lyrics, no separate flag.
+KNOWN_FLAGS = ("needs-lyrics", "needs-chords", "notation", "ready")
 
 
 def parse_flags(value):
@@ -87,22 +102,6 @@ def parse_flags(value):
     if not value:
         return []
     return [f.strip().lower() for f in re.split(r"[,\s]+", value) if f.strip()]
-
-
-def infer_flags(text):
-    """Flags implied purely by a song's content (no file-name heuristics)."""
-    t = (text or "").replace("\r\n", "\n").replace("\r", "\n")
-    body_lines = [l for l in t.split("\n")
-                  if l.strip() and not DIRECTIVE_RE.match(l)]
-    flags = set()
-    if len(t.strip()) <= 1 or not body_lines or BOILERPLATE in t:
-        flags.add("needs-lyrics")
-        return flags
-    if len(body_lines) < 6:
-        flags.add("stub")
-    if not CHORD_RE.search(t):
-        flags.add("needs-chords")
-    return flags
 
 
 def is_song_file(name):
@@ -115,23 +114,120 @@ def is_song_file(name):
     return os.path.isfile(os.path.join(SONGS_DIR, name))
 
 
+def is_pdf_song_file(name):
+    if not name or name.startswith("."):
+        return False
+    if os.path.splitext(name)[1].lower() != ".pdf":
+        return False
+    return os.path.isfile(os.path.join(SONGS_DIR, name))
+
+
+GS_BIN = shutil.which("gs")
+
+
+def pdf_page_count(path):
+    """Page count via Ghostscript (Typst has no way to ask a PDF its length)."""
+    if not GS_BIN:
+        return None
+    escaped = path.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    ps = f"({escaped}) (r) file runpdfbegin pdfpagecount = quit"
+    try:
+        out = subprocess.run(
+            [GS_BIN, "-q", "-dNODISPLAY", f"--permit-file-read={path}", "-c", ps],
+            capture_output=True, text=True, timeout=20,
+        )
+        return int(out.stdout.strip())
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return None
+
+
+CROPS_DIR = os.path.join(SONGS_DIR, ".crops")
+
+
+PAGE_SIZE_DPI = 72  # 1 point == 1px at 72dpi, so pixel dims are points directly
+
+
+def _png_dimensions(data):
+    if len(data) < 24 or data[12:16] != b"IHDR":
+        return None
+    w, h = struct.unpack(">II", data[16:24])
+    return (w, h) if w > 0 and h > 0 else None
+
+
+def pdf_page_size(path):
+    """Page size in points, derived from the *same* kind of raster server.js
+    generates for the crop-mode preview (rendered at a DPI where pixels map
+    1:1 to points), not Ghostscript's `bbox` device — bbox reports the ink
+    content's bounding box (an auto-trim), which is usually smaller than the
+    nominal page and would silently mismatch what the crop UI actually
+    showed the user, throwing off the scale of every saved crop rectangle.
+    Assumes a uniform page size across the document, so only page 1 is
+    queried."""
+    if not GS_BIN:
+        return None
+    try:
+        out = subprocess.run(
+            [GS_BIN, "-q", "-dNOPAUSE", "-dBATCH", "-sDEVICE=png16m", f"-r{PAGE_SIZE_DPI}",
+             "-dFirstPage=1", "-dLastPage=1", f"--permit-file-read={path}",
+             "-sOutputFile=%stdout%", path],
+            capture_output=True, timeout=20,
+        )
+        return _png_dimensions(out.stdout)
+    except (subprocess.SubprocessError, OSError):
+        return None
+
+
+def load_crops(name):
+    """Read the per-page crop sidecar for a PDF song, if any (written by the
+    manager UI's crop editor via server.js). Returns {} when absent/empty —
+    the caller treats that as "no crop, render pages unchanged"."""
+    try:
+        with open(os.path.join(CROPS_DIR, name + ".json"), encoding="utf-8") as f:
+            data = json.load(f)
+        pages = data.get("pages") or {}
+        return pages if isinstance(pages, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def parse_pdf_song(name):
+    """A scanned sheet-music PDF: title from the file name, page count via gs,
+    and a Typst-root-relative path for `image(path, page: n)` in book.typ."""
+    abs_path = os.path.join(SONGS_DIR, name)
+    stem = os.path.splitext(name)[0]
+    title = clean_title(stem)
+
+    rel = os.path.relpath(abs_path, ROOT)
+    if rel.startswith(".."):
+        return None, "outside typst root (--root . can't reach SONGS_DIR)"
+
+    pages = pdf_page_count(abs_path)
+    if not pages or pages < 1:
+        return None, "gs page count failed (ghostscript missing or unreadable PDF)"
+
+    song = {
+        "name": name,
+        "title": title,
+        "kind": "pdf",
+        "path": "/" + rel.replace(os.sep, "/"),
+        "pages": pages,
+    }
+
+    crops = load_crops(name)
+    if crops:
+        page_size = pdf_page_size(abs_path)
+        if page_size:
+            song["crops"] = crops
+            song["pageSize"] = page_size
+        # else: crop sidecar exists but we couldn't read a page size (e.g.
+        # gs missing) — skip cropping rather than fail the whole song.
+
+    return song, None
+
+
 def clean_title(raw):
     t = EDITORIAL.sub("", raw).strip()
     return t or raw.strip()
-
-
-def looks_like_lyric(line):
-    """Heuristic: is this first line actually a lyric rather than a title?"""
-    if CHORD_RE.search(line):
-        return True
-    s = line.strip()
-    if len(s) > 45:
-        return True
-    if len(s) > 25 and s[-1:] in ",;:":
-        return True
-    if "," in s and len(s) > 32:
-        return True
-    return False
 
 
 def raw_segments(line):
@@ -257,27 +353,14 @@ def parse_song(name, text):
         return None
 
     lines = text.split("\n")
-    i = 0
-    while i < len(lines) and lines[i].strip() == "":
-        i += 1
-    if i >= len(lines):
+    if not any(l.strip() for l in lines):
         return None
 
     # The title is always the file name; song files carry no title line.
     title = clean_title(name)
 
-    # Optional leading author line: a short non-lyric line, then a blank line.
-    author = ""
-    if (i < len(lines) and lines[i].strip() != ""
-            and not DIRECTIVE_RE.match(lines[i])
-            and not looks_like_lyric(lines[i])
-            and not CUE_RE.match(lines[i]) and not MARK_RE.match(lines[i])
-            and len(lines[i].strip()) <= 40
-            and (i + 1 >= len(lines) or lines[i + 1].strip() == "")):
-        author = lines[i].strip()
-        i += 1
-
-    # Optional metadata directives.
+    # Metadata directives (author/history/note/flags) lead the file.
+    i = 0
     meta = {}
     while i < len(lines):
         if lines[i].strip() == "":
@@ -297,16 +380,13 @@ def parse_song(name, text):
     if not blocks:
         return None
 
-    # Normalise author "by X" / "- X".
-    if author:
-        author = re.sub(r"^\s*(by|words?|music|trad(?:itional)?\.?)\s*[:.-]?\s*",
-                        "", author, flags=re.IGNORECASE).strip() or author
-
-    flags = sorted(set(infer_flags(text)) | set(parse_flags(meta.get("flags"))))
+    author = meta.get("author", "")
+    flags = sorted(set(parse_flags(meta.get("flags"))))
 
     return {
         "name": name,
         "title": title,
+        "kind": "lyric",
         "author": author,
         "meta": meta,
         "flags": flags,
@@ -341,6 +421,17 @@ def main():
         if prev is None or weight > prev[0]:
             by_key[key] = (weight, s)
     songs = [v[1] for v in by_key.values()]
+
+    if not GS_BIN:
+        print("no `gs` (ghostscript) on PATH — PDF songs will be skipped",
+              file=sys.stderr)
+    pdf_names = sorted(n for n in os.listdir(SONGS_DIR) if is_pdf_song_file(n))
+    for name in pdf_names:
+        pdf_song, why = parse_pdf_song(name)
+        if pdf_song is None:
+            skipped.append((name, why))
+            continue
+        songs.append(pdf_song)
 
     songs.sort(key=lambda s: s["title"].lower())
 

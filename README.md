@@ -1,6 +1,6 @@
 # folksong-anthology
 
-Song files live as plain, extension-less files at the repo root. Each
+Song files live as plain, extension-less files in the data dir on the server. Each
 file's name **is** its title (editorial markers like `(Needs Lyrics)`
 are stripped for display). See a song file for the format: an
 optional author line, optional `{directives}`, then verses with

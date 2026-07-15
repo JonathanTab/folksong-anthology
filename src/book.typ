@@ -18,6 +18,25 @@
 //   typst compile ... --input diagrams=on
 // or per song via a directive in the song file:  {diagrams: on}
 #let want-diagrams = sys.inputs.at("diagrams", default: "off").trim() == "on"
+// Author/history/note are ON by default (they're ordinary bibliographic
+// info you'd normally want in a printed book) — a build opts *out* of one,
+// e.g. `typst compile ... --input note=off`, rather than opting in.
+#let want-author  = sys.inputs.at("author", default: "on").trim() != "off"
+#let want-history = sys.inputs.at("history", default: "on").trim() != "off"
+#let want-note    = sys.inputs.at("note", default: "on").trim() != "off"
+// Chord letters over the lyrics, and scanned sheet-music (PDF) songs, are also
+// ON by default — a build opts *out*, same convention as author/history/note.
+#let want-chords      = sys.inputs.at("chords", default: "on").trim() != "off"
+#let want-sheet-music = sys.inputs.at("pdfs", default: "on").trim() != "off"
+
+// The song set actually going into this build: sheet-music (PDF) songs are
+// dropped up front when want-sheet-music is off, so the front-matter count,
+// the alphabetical index (which just queries rendered headings) and the
+// running heads all agree for free — nothing downstream needs to know why a
+// song is missing.
+#let book-songs = if want-sheet-music { doc.songs } else {
+  doc.songs.filter(s => s.kind != "pdf")
+}
 
 // ---- palette & type ---------------------------------------------------------
 // Tuned to read well in plain black & white; the accent only ever carries
@@ -43,6 +62,8 @@
 #let gutter = 22pt
 #let col-w  = (page-w - 2 * m-x - gutter) / 2
 #let col-h  = page-h - m-top - m-bot - 0.28in    // less header/footer band
+#let body-h = page-h - m-top - m-bot             // full single-column body height
+#let body-w = page-w - 2 * m-x                   // full single-column body width
 
 // =============================================================================
 //  Chord diagrams (guitar).  Frets are low-E..high-E; -1 muted, 0 open.
@@ -184,8 +205,9 @@
 
 #let render-line(tokens) = {
   // Chordless lines render as plain tight text; only lines that actually carry
-  // a chord pay for the raised chord row.
-  let has-chord = tokens.any(t => t.chord != "")
+  // a chord pay for the raised chord row. When want-chords is off, every line
+  // is treated as chordless so lyrics render tight with no reserved chord row.
+  let has-chord = want-chords and tokens.any(t => t.chord != "")
   if not has-chord {
     let s = ""
     for t in tokens { if t.sp { s += " " }; s += t.word }
@@ -238,15 +260,16 @@
 // =============================================================================
 //  Song
 // =============================================================================
-#let META-LABELS = (
-  key: "Key", capo: "Capo", tempo: "Tempo", time: "Time",
-  tuning: "Tuning", source: "Source", note: "Note", trad: "",
-)
+// Only `note` renders as a compact "Label: value" caption; `author` and
+// `history` are prose and get their own italic lines (see song-body below).
+#let META-LABELS = (note: "Note")
 
 #let meta-line(meta) = {
   let parts = ()
   for (k, label) in META-LABELS {
-    if k in meta {
+    // Stubbed-out directives ("{note: }") are blank until filled in — skip
+    // them rather than showing an empty "Note:" in the book.
+    if k in meta and meta.at(k).trim() != "" {
       let v = meta.at(k)
       parts.push(if label == "" { v } else [#label: #v])
     }
@@ -266,11 +289,15 @@
   // header kept with the first slice of the song
   block(breakable: false, sticky: true, below: 2pt)[
     #heading(level: 1, outlined: true)[#s.title]
-    #if s.author != "" {
+    #if want-author and s.author != "" {
       block(above: 1pt, below: 2pt,
         text(size: 9pt, style: "italic", fill: muted)[#s.author])
     }
-    #meta-line(s.meta)
+    #if want-history and "history" in s.meta and s.meta.history.trim() != "" {
+      block(above: 1pt, below: 2pt,
+        text(size: 8.5pt, style: "italic", fill: muted)[#s.meta.history])
+    }
+    #if want-note { meta-line(s.meta) }
     #if show-diag { diagram-strip(s.chords) }
   ]
   for bl in s.blocks {
@@ -289,6 +316,87 @@
   // whole block to the next column/page rather than splitting it.
   let h = measure(box(width: col-w, body)).height
   block(breakable: h > col-h - 16pt, above: 15pt, below: 4pt, width: 100%, body)
+}
+
+// =============================================================================
+//  Scanned sheet-music (PDF) songs — each gets its own full-width page(s).
+//  Typst >=0.14 embeds a PDF page directly as an image (vector, in PDF export).
+//  The heading is what makes the running head, page counter and alphabetical
+//  index (which all work off `query(heading.where(level: 1))`) pick this song
+//  up exactly like a lyric song, with no special-casing needed there.
+// =============================================================================
+#let pdf-head-h = 34pt   // approx space the title/caption block takes on page 1
+
+// Renders one embedded PDF page into a `w`-by-`h` box, centered. `s.crops`
+// (if present, from the manager UI's crop editor — see
+// bin/parse-songs.py's parse_pdf_song / load_crops) maps a 1-based page
+// number (as a string, matching the JSON sidecar) to a `{left,top,right,
+// bottom}` crop rectangle in fractions 0..1 of the page. A page with no
+// entry renders unchanged (today's plain `fit: "contain"` embed).
+//
+// For a cropped page: `s.pageSize` (page width/height in points, from
+// Ghostscript's bbox device) lets us compute a uniform scale so the crop is
+// shown at the *same* proportions the uncropped page would have been at —
+// scaling non-uniformly here would visibly stretch/squash the scan. The
+// full page is drawn at that scale (`fw x fh`) with `fit: "stretch"`
+// (image()'s default `fit` is "cover", which would silently re-crop/center
+// on its own and break the manual offset below), then `move()`d up/left by
+// the crop's top-left corner and clipped to the crop's own visible size
+// (`vw x vh`) via `box(clip: true)` — `move()` displaces without resizing
+// its container, so the clip box stays exactly `vw x vh` regardless of the
+// shift.
+//
+// Centering is done with manual `pad()`, not `align(center + horizon)` —
+// wrapping this clip+move box in `align`/`place` triggers a real Typst
+// (0.15.0) layout bug where the visible crop window silently slides down by
+// roughly half the box's leftover space, chopping that much off the *top*
+// of the crop and leaving a matching gap at the bottom, instead of just
+// repositioning the already-correct box. Verified against the real
+// production crops (America the Beautiful, Battle Hymn of the Republic, We
+// be soldiers three) via a real build on the old server: `align`/`place`
+// both cut the top of the crop (e.g. losing the composer credit line right
+// under the title), `pad()` doesn't.
+#let pdf-page-image(s, page, w, h) = {
+  let crop = if "crops" in s { s.crops.at(str(page), default: none) } else { none }
+  if crop == none {
+    box(width: w, height: h,
+      image(s.path, page: page, width: 100%, height: 100%, fit: "contain"))
+  } else {
+    let cw = (crop.right - crop.left) * s.pageSize.at(0)
+    let ch = (crop.bottom - crop.top) * s.pageSize.at(1)
+    let scale = calc.min(w / cw, h / ch)
+    let (vw, vh) = (cw * scale, ch * scale)
+    let (fw, fh) = (s.pageSize.at(0) * scale, s.pageSize.at(1) * scale)
+    let img = box(width: vw, height: vh, clip: true,
+      move(dx: -crop.left * fw, dy: -crop.top * fh,
+        image(s.path, page: page, width: fw, height: fh, fit: "stretch")))
+    pad(left: (w - vw) / 2, right: (w - vw) / 2,
+      top: (h - vh) / 2, bottom: (h - vh) / 2, img)
+  }
+}
+
+#let pdf-song(s) = {
+  pagebreak()
+  block(breakable: false, sticky: true, below: 4pt)[
+    #heading(level: 1, outlined: true)[#s.title]
+    #block(above: 1pt, below: 0pt,
+      text(size: 8pt, fill: muted, font: mono)[
+        sheet music#if s.pages > 1 [ · #s.pages pages]
+      ])
+  ]
+  pdf-page-image(s, 1, body-w, body-h - pdf-head-h)
+  for p in range(2, s.pages + 1) {
+    pagebreak()
+    pdf-page-image(s, p, body-w, body-h)
+  }
+  // Guarantee the next song starts on a fresh page. Without this, whatever
+  // sliver of the page the fixed-height image box doesn't fill (its `fit:
+  // "contain"` box is exactly body-h tall, but rounding/measurement slop can
+  // leave a hair of room) gets claimed by the next `columns()` run, cramming
+  // its first heading/lines into the leftover space at the bottom of this
+  // song's page. `weak` so it's a no-op on the rare page that lands exactly
+  // on a boundary already, instead of inserting a spurious blank page.
+  pagebreak(weak: true)
 }
 
 // =============================================================================
@@ -314,18 +422,38 @@
 // =============================================================================
 //  Front matter — title page
 // =============================================================================
+// What the book actually contains, in the order a reader would care about
+// them — built from the same want-* flags that gate the content itself, so
+// this blurb can never claim something the book doesn't deliver.
+#let front-descriptors = {
+  let parts = ("words",)
+  if want-chords { parts.push("chords") }
+  if want-diagrams { parts.push("guitar shapes") }
+  if want-sheet-music and book-songs.any(s => s.kind == "pdf") {
+    parts.push("sheet music")
+  }
+  parts
+}
+#let front-blurb = if front-descriptors.len() <= 1 {
+  front-descriptors.join()
+} else if front-descriptors.len() == 2 {
+  front-descriptors.join(" & ")
+} else {
+  front-descriptors.slice(0, -1).join(", ") + " & " + front-descriptors.last()
+}
+
 #page(margin: 0in, header: none, footer: none, {
   set align(center + horizon)
   block(width: 100%, {
     v(1fr)
     text(size: 11pt, tracking: 4pt, fill: accent)[F O L K S O N G]
     v(6pt)
-    text(font: serif, size: 46pt, weight: "bold")[The Anthology]
+    text(font: serif, size: 46pt, weight: "bold")[The Thousand Good Songs]
     v(10pt)
     line(length: 34%, stroke: 0.8pt + accent)
     v(14pt)
     text(size: 12pt, style: "italic", fill: muted)[
-      #doc.count songs · words, chords & guitar shapes
+      #book-songs.len() songs · #front-blurb
     ]
     v(2fr)
     text(size: 9pt, fill: muted, font: mono)[Compiled #doc.generated]
@@ -366,9 +494,9 @@
   header: context {
     // Running head: the last song that has begun by this page (outer), and the
     // book title (inner).  Rule sits cleanly *below* the text, not through it.
-    let cur = counter(page).get().first()
+    let cur = here().page()
     let songs-here = query(heading.where(level: 1))
-      .filter(h => counter(page).at(h.location()).first() <= cur)
+      .filter(h => h.location().page() <= cur)
     let label = if songs-here.len() > 0 { songs-here.last().body } else [#doc.title]
     block(width: 100%, {
       set text(size: 8pt, fill: muted, font: serif)
@@ -387,6 +515,25 @@
 )
 #counter(page).update(1)
 
-#columns(2, gutter: gutter, {
-  for s in doc.songs { song(s) }
-})
+// Songs are interleaved alphabetically regardless of kind (book-songs is
+// already sorted by title, same order as doc.songs since it's a filter of
+// it).  Lyric songs flow through the normal 2-column layout; runs of them
+// are grouped into their own `columns()` call so a PDF song in between can
+// pagebreak out to its own full-width page(s) and then hand back to a fresh
+// 2-column flow.
+#{
+  let run = ()
+  let flush(run) = if run.len() > 0 {
+    columns(2, gutter: gutter, { for s in run { song(s) } })
+  }
+  for s in book-songs {
+    if s.kind == "pdf" {
+      flush(run)
+      run = ()
+      pdf-song(s)
+    } else {
+      run.push(s)
+    }
+  }
+  flush(run)
+}

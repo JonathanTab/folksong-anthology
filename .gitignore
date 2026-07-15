@@ -1,6 +1,7 @@
 node_modules/
 build/
 .DS_Store
+__pycache__/
 
 # Song content lives outside the repo, in instrumenta's shared data folder
 # (SONGS_DIR — see server.js and ecosystem.config.cjs). This local copy is

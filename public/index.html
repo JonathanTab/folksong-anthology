@@ -12,10 +12,11 @@
       <span class="brand-mark">♪</span>
       <div>
         <h1>The Thousand Good Songs</h1>
-        <p class="sub">anthology manager</p>
+        <p class="sub">songbook manager</p>
       </div>
     </div>
     <div class="topbar-actions">
+      <button id="historyPill" class="history-pill" title="Edit history">no edits yet</button>
       <span id="buildPill" class="pill pill-idle" title="Build status">idle</span>
       <button id="viewPdfBtn" class="btn btn-ghost" disabled>View PDF</button>
       <button id="buildBtn" class="btn btn-primary">Build songbook</button>
@@ -28,6 +29,8 @@
       <div class="sidebar-head">
         <input id="search" type="search" placeholder="Search songs…" autocomplete="off">
         <button id="newBtn" class="btn btn-small" title="New song">+ New</button>
+        <button id="uploadPdfBtn" class="btn btn-small" title="Upload sheet-music PDF">+ PDF</button>
+        <input id="pdfFileInput" type="file" accept="application/pdf" hidden>
       </div>
       <div id="newSongRow" class="new-song-row" hidden>
         <input id="newSongInput" type="text" placeholder="Song filename (this is the title)…" autocomplete="off">
@@ -40,7 +43,6 @@
         <button class="chip" data-filter="needs-chords">Needs chords</button>
         <button class="chip" data-filter="needs-lyrics">Needs lyrics</button>
         <button class="chip" data-filter="notation">Notation</button>
-        <button class="chip" data-filter="stub">Stubs</button>
       </div>
       <div class="list-meta"><span id="count"></span></div>
       <ul id="songList" class="song-list"></ul>
@@ -72,13 +74,58 @@
         <div class="pane pane-edit">
           <div class="pane-label">
             Source
-            <span class="hint">title comes from the filename · optional author line · blank line separates verses · <code>(G)</code> chords · <code>(Chorus)</code></span>
+            <span class="hint">title comes from the filename · optional <code>{author: }</code>, <code>{history: }</code>, <code>{note: }</code> directives · blank line separates verses · <code>(G)</code> chords · <code>(Chorus)</code></span>
           </div>
           <textarea id="source" spellcheck="false" wrap="off"></textarea>
         </div>
         <div class="pane pane-preview">
           <div class="pane-label">Preview</div>
           <div id="preview" class="preview"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PDF (sheet music) viewer -->
+    <section class="editor pdf-viewer" id="pdfViewer" hidden>
+      <div class="editor-head">
+        <div class="editor-title">
+          <h2 id="pdfTitle" tabindex="0" title="Click to rename">—</h2>
+          <input id="pdfTitleInput" class="title-input" hidden autocomplete="off" spellcheck="false">
+          <div id="pdfBadges" class="badges"></div>
+        </div>
+        <div class="editor-actions">
+          <button id="pdfCropToggleBtn" class="btn btn-ghost btn-small">Crop pages</button>
+          <button id="pdfReplaceBtn" class="btn btn-ghost btn-small">Replace file</button>
+          <button id="pdfRenameBtn" class="btn btn-ghost btn-small">Rename</button>
+          <button id="pdfDeleteBtn" class="btn btn-danger btn-small">Delete</button>
+        </div>
+      </div>
+
+      <!-- Paged page-by-page preview (rasterized via Ghostscript), always
+           shown for a PDF song. "Crop pages" toggles whether the draggable
+           crop rectangle + its editing buttons are shown; the rectangle
+           auto-saves on drag end, no separate save step. -->
+      <div id="cropPanel" class="crop-panel">
+        <div class="crop-toolbar">
+          <button id="cropPrevBtn" class="btn btn-ghost btn-small">‹ Prev</button>
+          <span id="cropPageLabel" class="crop-page-label">Page 1 / 1</span>
+          <button id="cropNextBtn" class="btn btn-ghost btn-small">Next ›</button>
+          <span id="cropReadout" class="crop-readout"></span>
+          <span class="crop-toolbar-spacer"></span>
+          <button id="cropResetBtn" class="btn btn-ghost btn-small">Reset</button>
+          <button id="cropApplyAllBtn" class="btn btn-ghost btn-small">Apply to all pages</button>
+        </div>
+        <div id="cropStage" class="crop-stage">
+          <div id="cropFrame" class="crop-frame">
+            <img id="cropImg" class="crop-img" alt="Page preview" draggable="false">
+            <div id="cropRect" class="crop-rect">
+              <div class="crop-handle" data-handle="nw"></div>
+              <div class="crop-handle" data-handle="ne"></div>
+              <div class="crop-handle" data-handle="se"></div>
+              <div class="crop-handle" data-handle="sw"></div>
+            </div>
+          </div>
+          <div id="cropSpinner" class="crop-spinner"></div>
         </div>
       </div>
     </section>
@@ -100,6 +147,15 @@
         <button id="closeDrawer" class="btn btn-ghost btn-small">Close</button>
       </div>
     </div>
+    <div id="buildFlags" class="build-flags">
+      <span class="build-flags-label">Include in book:</span>
+      <label><input type="checkbox" data-flag="author"> Author</label>
+      <label><input type="checkbox" data-flag="history"> History</label>
+      <label><input type="checkbox" data-flag="note"> Note</label>
+      <label><input type="checkbox" data-flag="chords"> Chords</label>
+      <label><input type="checkbox" data-flag="diagrams"> Chord diagrams</label>
+      <label><input type="checkbox" data-flag="pdfs"> Sheet music</label>
+    </div>
     <div class="drawer-body">
       <div class="drawer-col">
         <div class="pane-label">Build log</div>
@@ -108,6 +164,21 @@
       <div class="drawer-col drawer-pdf">
         <div class="pane-label">Result</div>
         <iframe id="pdfFrame" title="Songbook PDF"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit history drawer -->
+  <div id="historyDrawer" class="drawer" hidden>
+    <div class="drawer-head">
+      <h3>Edit history</h3>
+      <div class="drawer-actions">
+        <button id="closeHistoryDrawer" class="btn btn-ghost btn-small">Close</button>
+      </div>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-col">
+        <ul id="historyList" class="history-list"></ul>
       </div>
     </div>
   </div>
