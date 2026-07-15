@@ -42,7 +42,7 @@ const RESERVED = new Set([
 // ---------------------------------------------------------------------------
 
 // A song file is a plain file in SONGS_DIR with no extension, not a dotfile,
-// and not on the reserved list. This matches src/generate.py's own filter.
+// and not on the reserved list. This matches bin/parse-songs.py's own filter.
 function isSongName(name) {
   if (!name || typeof name !== 'string') return false;
   if (name.includes('/') || name.includes('\\')) return false;

@@ -1,9 +1,0 @@
-prose:
-  ignore:
-    - .gitignore
-    - README.md
-    - Tectonic.toml
-    - _prose.yml
-    - /src
-    - /build
-    - /.github

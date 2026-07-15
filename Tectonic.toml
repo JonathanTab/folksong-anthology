@@ -1,7 +1,0 @@
-[doc]
-name = 'folksong-anthology'
-bundle = 'https://data1.fullyjustified.net/tlextras-2021.3r1.tar'
-
-[[output]]
-name = 'main'
-type = 'pdf'
