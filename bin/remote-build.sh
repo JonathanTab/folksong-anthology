@@ -19,11 +19,13 @@
 #   BUILD_SSH_KEY      ssh key for the build host (default /var/www/.ssh/id_ed25519)
 #   BOOK_TITLE         songbook cover title
 #   BUILD_DIR          local output dir (default <repo>/build)
+#   SONGS_DIR          directory holding the song files (default: this repo's root)
 
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-$ROOT/build}"
+SONGS_DIR="${SONGS_DIR:-$ROOT}"
 OLD_HOST="${OLD_HOST:-73.144.157.250}"
 OLD_USER="${OLD_USER:-isidore}"
 REMOTE_DIR="${REMOTE_BUILD_DIR:-/var/www/folksong-build}"
@@ -40,8 +42,11 @@ mkdir -p "$BUILD_DIR"
 
 log "build host: $OLD_USER@$OLD_HOST:$REMOTE_DIR"
 
-# 1. push sources (as www-data on the remote so the tree is www-data-owned).
-log "syncing sources → build host"
+# 1. push app sources (as www-data on the remote so the tree is www-data-owned).
+#    Songs live separately (SONGS_DIR) and are synced in their own step below,
+#    each with its own --delete, so a rename/delete in one tree can't be read
+#    as "missing" and wipe out the other.
+log "syncing app sources → build host"
 rsync -rlz --delete \
   --rsync-path="sudo -u www-data rsync" \
   -e "${SSH[*]}" \
@@ -50,10 +55,18 @@ rsync -rlz --delete \
   "$ROOT/" "$OLD_USER@$OLD_HOST:$REMOTE_DIR/" 2>&1 \
   || fail "source sync failed"
 
+# 1b. push songs into their own subdirectory on the build host.
+log "syncing songs → build host"
+rsync -rlz --delete \
+  --rsync-path="sudo -u www-data rsync" \
+  -e "${SSH[*]}" \
+  "$SONGS_DIR/" "$OLD_USER@$OLD_HOST:$REMOTE_DIR/songs/" 2>&1 \
+  || fail "songs sync failed"
+
 # 2. run the typst build on the remote as www-data.
 log "running typst build on remote host…"
 "${SSH[@]}" "$OLD_USER@$OLD_HOST" \
-  "sudo -u www-data env BUILD_DIR='$REMOTE_DIR/build' TYPST='$REMOTE_TYPST' BOOK_TITLE='$BOOK_TITLE' bash '$REMOTE_DIR/bin/build.sh'" 2>&1
+  "sudo -u www-data env BUILD_DIR='$REMOTE_DIR/build' TYPST='$REMOTE_TYPST' BOOK_TITLE='$BOOK_TITLE' SONGS_DIR='$REMOTE_DIR/songs' bash '$REMOTE_DIR/bin/build.sh'" 2>&1
 rc=$?
 log "remote build exit=$rc"
 

@@ -12,6 +12,8 @@
 #   BUILD_DIR   output/scratch dir   (default <repo>/build)
 #   TYPST       path to the typst binary (else searched on PATH & common dirs)
 #   BOOK_TITLE  title on the cover   (default "The Folksong Anthology")
+#   SONGS_DIR   directory holding the song files (default <repo>/, passed through
+#               to bin/parse-songs.py — see server.js for the same convention)
 
 set -uo pipefail
 

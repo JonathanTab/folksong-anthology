@@ -14,6 +14,9 @@ module.exports = {
       env: {
         PORT: 3939,
         HOST: '127.0.0.1',
+        // Song files live outside the git-deployed app tree, in instrumenta's
+        // shared per-app data folder, so live edits never touch the repo.
+        SONGS_DIR: '/var/www/instrumenta/data/folksong-anthology',
         // Builds run on the old compute server, which holds the typst binary.
         BUILD_SCRIPT: __dirname + '/bin/remote-build.sh',
         OLD_HOST: '73.144.157.250',

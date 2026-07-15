@@ -38,6 +38,7 @@ import sys
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SONGS_DIR = os.environ.get("SONGS_DIR", ROOT)
 
 BOOK_TITLE = os.environ.get("BOOK_TITLE", "The Folksong Anthology")
 
@@ -111,7 +112,7 @@ def is_song_file(name):
         return False
     if name in RESERVED:
         return False
-    return os.path.isfile(os.path.join(ROOT, name))
+    return os.path.isfile(os.path.join(SONGS_DIR, name))
 
 
 def clean_title(raw):
@@ -315,12 +316,12 @@ def parse_song(name, text):
 
 
 def main():
-    names = sorted(n for n in os.listdir(ROOT) if is_song_file(n))
+    names = sorted(n for n in os.listdir(SONGS_DIR) if is_song_file(n))
     songs = []
     skipped = []
     for name in names:
         try:
-            with open(os.path.join(ROOT, name), encoding="utf-8") as fh:
+            with open(os.path.join(SONGS_DIR, name), encoding="utf-8") as fh:
                 text = fh.read()
         except (OSError, UnicodeDecodeError) as e:
             skipped.append((name, f"read-error: {e}"))

@@ -1,3 +1,8 @@
 node_modules/
 build/
 .DS_Store
+
+# Song content lives outside the repo, in instrumenta's shared data folder
+# (SONGS_DIR — see server.js and ecosystem.config.cjs). This local copy is
+# just a dev convenience mirror, not tracked.
+data/
