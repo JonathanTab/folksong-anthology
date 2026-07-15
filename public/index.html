@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Songbook Manager</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">♪</span>
+      <div>
+        <h1>The Thousand Good Songs</h1>
+        <p class="sub">anthology manager</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="buildPill" class="pill pill-idle" title="Build status">idle</span>
+      <button id="viewPdfBtn" class="btn btn-ghost" disabled>View PDF</button>
+      <button id="buildBtn" class="btn btn-primary">Build songbook</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <input id="search" type="search" placeholder="Search songs…" autocomplete="off">
+        <button id="newBtn" class="btn btn-small" title="New song">+ New</button>
+      </div>
+      <div id="newSongRow" class="new-song-row" hidden>
+        <input id="newSongInput" type="text" placeholder="Song filename (this is the title)…" autocomplete="off">
+        <button id="newSongConfirm" class="btn btn-small btn-primary">Create</button>
+        <button id="newSongCancel" class="btn btn-small btn-ghost">Cancel</button>
+      </div>
+      <div id="filters" class="filters">
+        <button class="chip is-active" data-filter="all">All</button>
+        <button class="chip" data-filter="ready">Ready</button>
+        <button class="chip" data-filter="needs-chords">Needs chords</button>
+        <button class="chip" data-filter="needs-lyrics">Needs lyrics</button>
+        <button class="chip" data-filter="notation">Notation</button>
+        <button class="chip" data-filter="stub">Stubs</button>
+      </div>
+      <div class="list-meta"><span id="count"></span></div>
+      <ul id="songList" class="song-list"></ul>
+    </aside>
+
+    <!-- Editor -->
+    <section class="editor" id="editor" hidden>
+      <div class="editor-head">
+        <div class="editor-title">
+          <h2 id="songTitle" tabindex="0" title="Click to rename">—</h2>
+          <input id="songTitleInput" class="title-input" hidden autocomplete="off" spellcheck="false">
+          <span id="songAuthor" class="author"></span>
+          <div id="badges" class="badges"></div>
+          <div id="flagEditor" class="flag-editor" title="Toggle workflow flags">
+            <span class="flag-editor-label">Flags:</span>
+            <button class="flag-toggle" data-flag="needs-lyrics">needs-lyrics</button>
+            <button class="flag-toggle" data-flag="needs-chords">needs-chords</button>
+            <button class="flag-toggle" data-flag="notation">notation</button>
+          </div>
+        </div>
+        <div class="editor-actions">
+          <span id="dirty" class="dirty" hidden>● unsaved</span>
+          <button id="renameBtn" class="btn btn-ghost btn-small">Rename</button>
+          <button id="deleteBtn" class="btn btn-danger btn-small">Delete</button>
+          <button id="saveBtn" class="btn btn-primary btn-small" disabled>Save</button>
+        </div>
+      </div>
+      <div class="panes">
+        <div class="pane pane-edit">
+          <div class="pane-label">
+            Source
+            <span class="hint">title comes from the filename · optional author line · blank line separates verses · <code>(G)</code> chords · <code>(Chorus)</code></span>
+          </div>
+          <textarea id="source" spellcheck="false" wrap="off"></textarea>
+        </div>
+        <div class="pane pane-preview">
+          <div class="pane-label">Preview</div>
+          <div id="preview" class="preview"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="empty-state" id="emptyState">
+      <div>
+        <div class="empty-mark">♫</div>
+        <p>Select a song to edit, or create a new one.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Build drawer -->
+  <div id="drawer" class="drawer" hidden>
+    <div class="drawer-head">
+      <h3>Build</h3>
+      <div class="drawer-actions">
+        <a id="pdfLink" class="btn btn-ghost btn-small" href="pdf" target="_blank" hidden>Open PDF ↗</a>
+        <button id="closeDrawer" class="btn btn-ghost btn-small">Close</button>
+      </div>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-col">
+        <div class="pane-label">Build log</div>
+        <pre id="buildLog" class="log"></pre>
+      </div>
+      <div class="drawer-col drawer-pdf">
+        <div class="pane-label">Result</div>
+        <iframe id="pdfFrame" title="Songbook PDF"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- In-app confirmation modal (replaces window.confirm/prompt) -->
+  <div id="modalBackdrop" class="modal-backdrop" hidden>
+    <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h3 id="modalTitle"></h3>
+      <p id="modalMessage"></p>
+      <div id="modalActions" class="modal-actions"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

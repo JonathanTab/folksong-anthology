@@ -3,6 +3,13 @@ import math
 
 final =""
 
+# Editorial markers stripped from a file name to make the displayed title.
+EDITORIAL = re.compile(
+    r"\s*[\(\[][^)\]]*\b(needs?|add|find|confirm|check|decide|jonathan|"
+    r"chords?|cords|lyrics|notation|chorus|bridge|verse|tbd|wip)\b[^)\]]*[\)\]]",
+    re.IGNORECASE,
+)
+
 os.chdir(os.path.dirname(os.path.dirname(__file__)))
 for file in glob.glob("*"):
     if not os.path.splitext(file)[1] and os.path.isfile(file):
@@ -15,19 +22,20 @@ for file in glob.glob("*"):
         with open(file, 'r', encoding='UTF-8') as curFile:
             contents = curFile.read()
             contents = contents + "\n"
-            
+
             if len(contents.split('\n')) < 7:
                 print("skip")
                 continue;
 
-            match = re.search(r"\s*(?P<name>\S.*?)\n(?P<author>\S?.*?)\n+(?P<body>[\S\s]*)$", contents)
-            final += "\\beginsong{"+match.group('name').strip().rstrip('\n')+"}"
-            if match.group('author') and not (match.group('author').isspace()):
-                final += "[by={"+match.group('author')+"}]"
+            # The title is always the file name; the file itself carries no
+            # title line, so the whole content is body.
+            name = EDITORIAL.sub("", file).strip() or file.strip()
+            body = contents
+            final += "\\beginsong{"+name.strip().rstrip('\n')+"}"
             final += "\n"
 
             # Now the verses and then change them to chords
-            working = re.sub(r"\s*(.+?\n)\s*?(?:\n+|$)", "\\\\beginverse\\n\\1\\\\endverse\\n", match.group('body'), 0, re.MULTILINE | re.DOTALL | re.IGNORECASE)
+            working = re.sub(r"\s*(.+?\n)\s*?(?:\n+|$)", "\\\\beginverse\\n\\1\\\\endverse\\n", body, 0, re.MULTILINE | re.DOTALL | re.IGNORECASE)
             working = re.sub(r"\\beginverse\n([\(\[]Chorus[\)\]].*?)\n\\endverse", "\\\\beginchorus\\n\\1\\n\\\\endchorus", working, 0, re.MULTILINE | re.DOTALL | re.IGNORECASE)
             working = re.sub(r"(?<!chorus)\n^\s*\(chorus\)\s*\n", "\\\\endverse\\n\\\\beginchorus(Chorus)\\\\endchorus\\n\\\\beginverse\\n", working, 0, re.MULTILINE | re.IGNORECASE)
             working = re.sub(r"\\beginverse\n\\endverse", "", working, 0, re.MULTILINE | re.IGNORECASE)

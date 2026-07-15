@@ -1,0 +1,13 @@
+{
+  "name": "folksong-anthology-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web UI for managing, editing and building the folksong anthology songbook",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
